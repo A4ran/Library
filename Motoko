@@ -1,0 +1,102 @@
+import List "mo:base/List";
+import Option "mo:base/Option";
+import Trie "mo:base/Trie";
+import Nat32 "mo:base/Nat32";
+
+actor LibrarySystem {
+  public type LibraryOrder = Nat32;
+  
+  public type BorrowInfo = {
+    studentName : Text;
+    bookName : Text;
+    bookCode : Nat32;
+    bookAuthor : Text;
+    borrowDate : Text;
+    dueDate : Text;
+    extensionDays : Nat32;
+    isReturned : Text;
+  };
+
+  public type StudentInfo = {
+    studentNumber : Nat32;
+  };
+
+  private stable var nextOrder : LibraryOrder = 1;
+  private stable var borrowInfos : Trie.Trie<LibraryOrder, BorrowInfo> = Trie.empty();
+  private stable var studentInfos : Trie.Trie<LibraryOrder, StudentInfo> = Trie.empty();
+
+  public func registerBorrow(borrow : BorrowInfo, info : StudentInfo) : async LibraryOrder {
+    let libraryOrder = nextOrder;
+    nextOrder += 1;
+    borrowInfos := Trie.replace(
+      borrowInfos,
+      key(libraryOrder),
+      Nat32.equal,
+      ?borrow,
+    ).0;
+    studentInfos := Trie.replace(
+      studentInfos,
+      key(libraryOrder),
+      Nat32.equal,
+      ?info,
+    ).0;
+    return libraryOrder;
+  };
+
+  public query func getBorrowInfo(libraryOrder : LibraryOrder) : async ?BorrowInfo {
+    return Trie.find(borrowInfos, key(libraryOrder), Nat32.equal);
+  };
+
+  public query func getStudentInfo(libraryOrder : LibraryOrder) : async ?StudentInfo {
+    return Trie.find(studentInfos, key(libraryOrder), Nat32.equal);
+  };
+
+  public func updateAllInfo(libraryOrder : LibraryOrder, borrow : BorrowInfo, info : StudentInfo) : async Bool {
+    let currentBorrow = Trie.find(borrowInfos, key(libraryOrder), Nat32.equal);
+    switch (currentBorrow) {
+      case null { return false };
+      case (?_) {
+        borrowInfos := Trie.replace(
+          borrowInfos,
+          key(libraryOrder),
+          Nat32.equal,
+          ?borrow,
+        ).0;
+        studentInfos := Trie.replace(
+          studentInfos,
+          key(libraryOrder),
+          Nat32.equal,
+          ?info,
+        ).0;
+        return true;
+      };
+    };
+  };
+
+  public func deleteStudent(libraryOrder : LibraryOrder) : async Bool {
+    let student = Trie.find(borrowInfos, key(libraryOrder), Nat32.equal);
+    
+    switch (student) {
+      case null { return false };
+      case (?_) {
+        borrowInfos := Trie.replace(
+          borrowInfos,
+          key(libraryOrder),
+          Nat32.equal,
+          null,
+        ).0;
+        studentInfos := Trie.replace(
+          studentInfos,
+          key(libraryOrder),
+          Nat32.equal,
+          null,
+        ).0;
+        return true;
+      };
+    };
+  };
+
+  private func key(x : LibraryOrder) : Trie.Key<LibraryOrder> {
+    return { hash = x; key = x };
+  };
+};
